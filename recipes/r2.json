@@ -1,0 +1,170 @@
+{
+  "name": "R02_회의녹음정리",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "1a75c57e-7242-4bcf-bf78-d76a25bf0379",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "1abcDEF_VIRTUAL_MEETING_MP3_FILE_ID",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "a528d551-f6a0-4baa-adf5-9c20a554ff80",
+      "name": "Drive: 회의 mp3 다운로드",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        240,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {
+          "language": "ko"
+        }
+      },
+      "id": "01816005-ae8d-42cb-897a-608989bedf3b",
+      "name": "Whisper STT",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.6,
+      "position": [
+        480,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Whisper 결과에서 text 추출 (가상 fallback 포함)\nconst t = $input.first().json.text || '안녕하세요, 오늘 3분기 프로젝트 회고 회의를 시작하겠습니다. 김철수: 매출은 전월 대비 18% 증가했고, 신규 고객 확보도 목표 대비 95% 달성했습니다. 이영희: 개발은 일정대로 v2.1 릴리즈를 완료했고, 다음 스프린트는 AI 기능 추가입니다. 마케팅은 다음 분기 캐페인 예산을 20% 늘리고 싶다는 의견입니다.';\nreturn [{ json: { transcript: t } }];"
+      },
+      "id": "b5c23db7-e79c-4d7c-ad51-6f0fc80094aa",
+      "name": "Transcript 추출",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "options": {}
+      },
+      "id": "482bc2a8-4f51-40b8-affc-dc8eee9e9668",
+      "name": "ChatGPT 요약",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        960,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "VIRTUAL_NOTION_DATABASE_ID",
+          "mode": "id"
+        },
+        "title": "={{ '회의록 ' + $now.format('yyyy-MM-dd') }}",
+        "propertiesUi": {
+          "propertyValues": []
+        },
+        "options": {}
+      },
+      "id": "9ca605f1-41cc-4f29-97f1-e7c9fcd6c740",
+      "name": "Notion 저장",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## R02 회의녹음정리\n\n흐름: Drive → Whisper → ChatGPT → Notion\n\n설정: Google Drive OAuth, OpenAI API key, Notion Integration token 필요\n\n가상 샘플 텍스트가 Code 노드에 fallback으로 삽입되어 있습니다.",
+        "height": 240,
+        "width": 380,
+        "color": 5
+      },
+      "id": "ed981532-2efe-44fb-925d-eb4de7945953",
+      "name": "안내",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Drive: 회의 mp3 다운로드",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive: 회의 mp3 다운로드": {
+      "main": [
+        [
+          {
+            "node": "Whisper STT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Whisper STT": {
+      "main": [
+        [
+          {
+            "node": "Transcript 추출",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "c4ddb57f-6ce6-4c23-91bf-e8f22996d1c0",
+  "meta": {
+    "instanceId": "f2ffa046c04041800271eccd8154a5b6026e4d78e996fe0f9732c229d47a20b7"
+  },
+  "id": "uD4klAoO9FKfOYm3",
+  "tags": []
+}

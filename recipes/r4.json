@@ -1,0 +1,203 @@
+{
+  "name": "R04_경비영수증OCR",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "7916d931-cbdb-4fbb-a870-2b4054989d4a",
+      "name": "Schedule (6시간마다)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "list"
+      },
+      "id": "d5688dce-7bad-40e3-b0f2-a28ae30b6002",
+      "name": "Drive: 영수증 폴더 감시",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        240,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 가상 영수증 메타데이터 fallback\nconst items = $input.all();\nif (items.length === 0) {\n  return [{ json: { id: 'VIRTUAL_FILE_ID_001', name: 'receipt_20260504_starbucks.jpg', mimeType: 'image/jpeg' } }];\n}\nreturn items;"
+      },
+      "id": "b6ecea8e-2790-402e-8498-bcafb1021497",
+      "name": "샘플 보장",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://vision.googleapis.com/v1/images:annotate?key=YOUR_GOOGLE_VISION_API_KEY",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"requests\":[{\n    \"image\":{\"source\":{\"imageUri\":\"https://drive.google.com/uc?id={{ $json.id }}\"}},\n    \"features\":[{\"type\":\"TEXT_DETECTION\"}]\n  }]\n}",
+        "options": {}
+      },
+      "id": "5183115b-987a-4538-a6a5-1c4d640c1d7a",
+      "name": "Google Vision OCR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Vision 응답에서 텍스트 추출 (가상 fallback)\nconst v = $input.first().json;\nlet text;\ntry { text = v.responses[0].fullTextAnnotation.text; }\ncatch { text = '스타벅스커피\\n강남점\\n2026-05-04 14:23\\n아메리카노 4,500원\\n카페모카 5,500원\\n합계 10,000원\\n신용카드 승인'; }\nreturn [{ json: { receipt_text: text, file_name: $('샘플 보장').item.json.name } }];"
+      },
+      "id": "78bfc83a-5241-4a20-888e-80b8ef81b414",
+      "name": "OCR 텍스트 추출",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "id": "6606ac9e-dd79-462a-80e1-6d9eb401c09d",
+      "name": "Claude 정형화",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        1200,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "VIRTUAL_EXPENSE_SHEETS_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "경비정산",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData"
+        },
+        "options": {}
+      },
+      "id": "ecab10d4-e175-4c15-9196-f3ef3a8cfc16",
+      "name": "Sheets append",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1440,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## R04 경비영수증OCR\n\n흐름: Drive → Vision → Claude → Sheets\n\n설정: Drive OAuth, Vision API key, Anthropic API key, Sheets ID 필요\n\n가상 영수증 텍스트(스타벅스)가 fallback으로 삽입되어 있어 즉시 테스트 가능",
+        "height": 240,
+        "width": 380,
+        "color": 5
+      },
+      "id": "d4f906ac-f032-4380-9194-caf72fa9c0c9",
+      "name": "안내",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule (6시간마다)": {
+      "main": [
+        [
+          {
+            "node": "Drive: 영수증 폴더 감시",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive: 영수증 폴더 감시": {
+      "main": [
+        [
+          {
+            "node": "샘플 보장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "샘플 보장": {
+      "main": [
+        [
+          {
+            "node": "Google Vision OCR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Vision OCR": {
+      "main": [
+        [
+          {
+            "node": "OCR 텍스트 추출",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "940c4756-089c-4b4f-87cc-2cd4d8552f14",
+  "meta": {
+    "instanceId": "f2ffa046c04041800271eccd8154a5b6026e4d78e996fe0f9732c229d47a20b7"
+  },
+  "id": "pNhpMEvy3G87h0L4",
+  "tags": []
+}

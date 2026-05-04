@@ -1,0 +1,184 @@
+{
+  "name": "R05_주간매출보고서",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "ea6f0d93-a5dd-440a-b7ac-0158af9e947b",
+      "name": "Schedule (월요일 09:00)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "VIRTUAL_SALES_SHEETS_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "주간매출",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "b8b15e04-b17a-49a0-b986-18cddaba3394",
+      "name": "Sheets: 매출 read",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        240,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 가상 매출 데이터 fallback\nconst items = $input.all();\nif (items.length === 0) {\n  return [{ json: {\n    rows: [\n      { date: '2026-04-27', product: 'A제품', revenue: 1250000, units: 25 },\n      { date: '2026-04-28', product: 'B제품', revenue: 980000, units: 14 },\n      { date: '2026-04-29', product: 'A제품', revenue: 1500000, units: 30 },\n      { date: '2026-04-30', product: 'C제품', revenue: 2100000, units: 7 },\n      { date: '2026-05-01', product: 'A제품', revenue: 1700000, units: 34 },\n      { date: '2026-05-02', product: 'B제품', revenue: 1100000, units: 16 },\n      { date: '2026-05-03', product: 'C제품', revenue: 1850000, units: 6 }\n    ],\n    totalRevenue: 10480000,\n    weekStart: '2026-04-27',\n    weekEnd: '2026-05-03'\n  } }];\n}\nconst rows = items.map(i => i.json);\nconst totalRevenue = rows.reduce((s, r) => s + (r.revenue || 0), 0);\nreturn [{ json: { rows, totalRevenue, weekStart: rows[0]?.date, weekEnd: rows.at(-1)?.date } }];"
+      },
+      "id": "6eb670b4-16b7-49e9-a402-445b79de14a0",
+      "name": "데이터 집계",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "id": "83e2d11f-90e8-41f6-8bb9-47511090b6e8",
+      "name": "Claude 분석",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        720,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "VIRTUAL_REPORT_FOLDER_ID",
+          "mode": "id"
+        }
+      },
+      "id": "b57dbb85-5451-404b-89e1-ac3209d65724",
+      "name": "Docs: 보고서 생성",
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        960,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hooks.slack.com/services/T0XXXXXXX/B0XXXXXXX/XXXXXXXXXXXX",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text\": \"📊 주간 매출 보고서 대시보드\\n총 매출: {{ $('데이터 집계').item.json.totalRevenue }}원\\n보고서: {{ $json.documentId }}\"\n}",
+        "options": {}
+      },
+      "id": "2f7adf51-9e5b-4b4c-8b73-892e54610aed",
+      "name": "Slack 알림",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## R05 주간매출보고서\n\n흐름: Schedule(월 09:00) → Sheets → Claude → Docs + Slack\n\n설정: Sheets ID, Anthropic API key, Docs OAuth, Slack Webhook 필요\n\n가상 매출 데이터(총 1,048만원)가 fallback으로 삽입되어 있어 즉시 테스트 가능",
+        "height": 240,
+        "width": 380,
+        "color": 5
+      },
+      "id": "afe1d003-1760-46b5-9003-3521d95a0720",
+      "name": "안내",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule (월요일 09:00)": {
+      "main": [
+        [
+          {
+            "node": "Sheets: 매출 read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets: 매출 read": {
+      "main": [
+        [
+          {
+            "node": "데이터 집계",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Docs: 보고서 생성": {
+      "main": [
+        [
+          {
+            "node": "Slack 알림",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "418af304-1b84-46df-a6c7-a317f780aead",
+  "meta": {
+    "instanceId": "f2ffa046c04041800271eccd8154a5b6026e4d78e996fe0f9732c229d47a20b7"
+  },
+  "id": "rsynG5zLGADdNf7w",
+  "tags": []
+}

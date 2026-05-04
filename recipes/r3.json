@@ -1,0 +1,224 @@
+{
+  "name": "R03_고객문의분류",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "is:unread"
+        },
+        "options": {}
+      },
+      "id": "d0428c3d-185e-4faf-a9bc-e60349f0ff52",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 가상 샘플 메일 데이터 fallback\nconst v = $input.first().json;\nconst subject = v.subject || '[문의] 결제가 아 되세요';\nconst body = v.snippet || v.text || '안녕하세요, 어제부터 결제가 계속 실패합니다. 카드는 정상입니다. 급한 건이니 빨리 해결 부탁드립니다.';\nconst from = v.from || 'customer@example.com';\nreturn [{ json: { subject, body, from } }];"
+      },
+      "id": "4bcad5b0-8909-40f4-a598-6f7c2b6a44c5",
+      "name": "메일 정규화",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-1.5-flash",
+        "options": {}
+      },
+      "id": "cd39768c-3729-45c1-b894-2df54b174bb5",
+      "name": "Gemini 분류",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        480,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gemini 응답 파싱 (가상 fallback)\nlet text = $input.first().json.text || $input.first().json.content || '';\nif (!text) text = '{\"category\":\"결제\",\"urgency\":\"높음\",\"summary\":\"결제 실패 따른 긴급 문의\"}';\nlet parsed;\ntry { parsed = JSON.parse(text.match(/\\{[\\s\\S]*\\}/)[0]); }\ncatch { parsed = { category: '기타', urgency: '보통', summary: text.slice(0, 80) }; }\nreturn [{ json: { ...parsed, original: $('메일 정규화').item.json } }];"
+      },
+      "id": "e7e5a77e-402c-4080-80cc-7c9b2c894c54",
+      "name": "JSON 파싱",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.urgency }}",
+              "rightValue": "높음",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "074b3bf0-a3e7-4993-a266-c893bfa89c0d",
+      "name": "IF 긴급도",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hooks.slack.com/services/T0XXXXXXX/B0XXXXXXX/XXXXXXXXXXXX",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text\": \"🚨 긴급 문의 [{{ $json.category }}]\\n발신자: {{ $json.original.from }}\\n요약: {{ $json.summary }}\"\n}",
+        "options": {}
+      },
+      "id": "33947dbf-929e-463a-a576-97ee5bdb3092",
+      "name": "Slack (긴급)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "VIRTUAL_SHEETS_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "문의접수",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "날짜": "={{ $now.toISO() }}",
+            "카테고리": "={{ $json.category }}",
+            "긴급도": "={{ $json.urgency }}",
+            "발신자": "={{ $json.original.from }}",
+            "요약": "={{ $json.summary }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "c436ea1e-82dd-46cd-a770-a16108bbe8d9",
+      "name": "Sheets 기록",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1200,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## R03 고객문의분류\n\n흐름: Gmail → Gemini → IF → Slack/Sheets\n\n설정: Gmail OAuth, Gemini API key, Slack Webhook, Google Sheets ID 필요",
+        "height": 220,
+        "width": 380,
+        "color": 5
+      },
+      "id": "362a8d77-eba9-4bcd-8469-065f5a555c9b",
+      "name": "안내",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "메일 정규화",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JSON 파싱": {
+      "main": [
+        [
+          {
+            "node": "IF 긴급도",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF 긴급도": {
+      "main": [
+        [
+          {
+            "node": "Slack (긴급)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sheets 기록",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "686ad7f6-0cdc-4941-8fcd-4bfde79fa26b",
+  "meta": {
+    "instanceId": "f2ffa046c04041800271eccd8154a5b6026e4d78e996fe0f9732c229d47a20b7"
+  },
+  "id": "6ChGcH27IswoBp8q",
+  "tags": []
+}

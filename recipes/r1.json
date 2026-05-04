@@ -1,0 +1,206 @@
+{
+  "name": "R01_일일뉴스클리핑",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "31357cb4-0878-44f7-bad7-7a0b70bf38d6",
+      "name": "Schedule (평일 08:00)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        32,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.aitimes.com/rss/allArticle.xml",
+        "options": {}
+      },
+      "id": "48253d13-b04b-441f-b5e8-4346a7cca748",
+      "name": "RSS Read (AI Times)",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [
+        272,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://techcrunch.com/feed/",
+        "options": {}
+      },
+      "id": "4ab28f53-3943-4846-9b12-ddfa9df0d926",
+      "name": "RSS Read (TechCrunch)",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [
+        272,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "71f71580-6338-4aeb-8780-b8fb1e52108e",
+      "name": "Merge Feeds",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        512,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst limited = items.slice(0, 5).map(it => ({ json: { title: it.json.title || '샘플 제목', link: it.json.link || 'https://example.com', pubDate: it.json.pubDate || new Date().toISOString(), contentSnippet: (it.json.contentSnippet || '').slice(0, 500) } }));\nreturn limited;"
+      },
+      "id": "75cf4796-d6f0-4bdd-a11e-a6c1e771eeff",
+      "name": "Filter Top 5",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "id": "39a4f75f-1f52-4d2b-81af-49abbd900874",
+      "name": "Claude 요약",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        960,
+        240
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "NKYYBuw35u8GZwXd",
+          "name": "Anthropic account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hooks.slack.com/services/T0XXXXXXX/B0XXXXXXX/XXXXXXXXXXXX",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text\": \"📰 오늘의 AI 뉴스 요약\\n{{ $json.message.content[0].text }}\"\n}",
+        "options": {}
+      },
+      "id": "3a7e44d3-4e54-4f80-8d84-33774914a816",
+      "name": "Slack 전송",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## R01 일일뉴스클리핑\n\n흐름: Schedule → RSS → Claude → Slack\n\n설정: Anthropic API key + Slack Webhook URL 교체 필요",
+        "height": 220,
+        "width": 360,
+        "color": 5
+      },
+      "id": "8f96b9f3-794b-4da7-8296-60b13d11374d",
+      "name": "안내",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule (평일 08:00)": {
+      "main": [
+        [
+          {
+            "node": "RSS Read (AI Times)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS Read (TechCrunch)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read (AI Times)": {
+      "main": [
+        [
+          {
+            "node": "Merge Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read (TechCrunch)": {
+      "main": [
+        [
+          {
+            "node": "Merge Feeds",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Feeds": {
+      "main": [
+        [
+          {
+            "node": "Filter Top 5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "bdf75748-cab2-437f-aed0-66572663b7d5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f2ffa046c04041800271eccd8154a5b6026e4d78e996fe0f9732c229d47a20b7"
+  },
+  "id": "drNP96MmYI0GrJ3C",
+  "tags": []
+}
